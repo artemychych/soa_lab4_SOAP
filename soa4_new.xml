@@ -1,0 +1,496 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:jms="http://www.mulesoft.org/schema/mule/jms" xmlns:vm="http://www.mulesoft.org/schema/mule/vm"
+	xmlns:wsc="http://www.mulesoft.org/schema/mule/wsc"
+	xmlns:tls="http://www.mulesoft.org/schema/mule/tls" xmlns:http="http://www.mulesoft.org/schema/mule/http" xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/tls http://www.mulesoft.org/schema/mule/tls/current/mule-tls.xsd
+http://www.mulesoft.org/schema/mule/wsc http://www.mulesoft.org/schema/mule/wsc/current/mule-wsc.xsd
+http://www.mulesoft.org/schema/mule/vm http://www.mulesoft.org/schema/mule/vm/current/mule-vm.xsd
+http://www.mulesoft.org/schema/mule/jms http://www.mulesoft.org/schema/mule/jms/current/mule-jms.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="3df529d2-46c4-470a-95d7-b706bbf8c9b3" >
+		<http:listener-connection protocol="HTTPS" host="0.0.0.0" port="6166" >
+			<tls:context >
+				<tls:trust-store insecure="true" />
+				<tls:key-store type="jks" path="server.keystore" alias="mydomain_certificate" keyPassword="password" password="password" />
+			</tls:context>
+		</http:listener-connection>
+	</http:listener-config>
+	<wsc:config name="Web_Service_Consumer_Config" doc:name="Web Service Consumer Config" doc:id="93d611e6-cd08-4548-8cd3-17b46b2d8df5" >
+		<wsc:connection wsdlLocation="https://localhost:6162/ws/schema.wsdl" service="SchemaPortService" port="SchemaPortSoap11" address="https://localhost:6162/ws" />
+	</wsc:config>
+	<flow name="getTickets" doc:id="3fb41646-bd87-4189-b575-2e88325f6bad" >
+		<http:listener doc:name="Listener" doc:id="e83e0885-e415-4e18-83bd-ca10b3ce38cc" path="/service/tickets" config-ref="HTTP_Listener_config" allowedMethods="GET">
+			<http:response >
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Access-Control-Allow-Origin" : "*",
+	"Access-Control-Allow-Methods" : "GET, PUT, POST, DELETE, HEAD, OPTIONS",
+	"Access-Control-Allow-Headers" : "*",
+	"Access-Control-Allow-Credentials" : "true"
+}]]]></http:headers>
+			</http:response>
+			<http:error-response >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Access-Control-Allow-Origin" : "*",
+	"Access-Control-Allow-Methods" : "GET, PUT, POST, DELETE, HEAD, OPTIONS",
+	"Access-Control-Allow-Headers" : "*",
+	"Access-Control-Allow-Credentials" : "true"
+}]]]></http:headers>
+			</http:error-response>
+		</http:listener>
+		<ee:transform doc:name="Transform Message" doc:id="a0b1f8bc-b023-41ee-9bce-228d2e9e61a5" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/xml skipNullOn="everywhere"
+ns ns0 http://se/ifmo/ru/service
+---
+{
+	ns0#getTicketsRequest: {
+		ns0#sort: attributes.queryParams.sort,
+		ns0#filter: attributes.queryParams.filter,
+		ns0#page: attributes.queryParams.page,
+		ns0#pageSize: attributes.queryParams.pageSize
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume doc:name="Consume" doc:id="56175179-cf55-45af-9449-532428dfb2e9" config-ref="Web_Service_Consumer_Config" operation="getTickets"/>
+		<logger level="INFO" doc:name="Logger" doc:id="ff1a8b2d-46f0-4541-ad8c-40e9b43704da" />
+		<ee:transform doc:name="Transform Message" doc:id="8e0bcbff-63bf-49bd-b6d8-cf452dc7c7b4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://se/ifmo/ru/service
+
+output application/xml
+
+---
+{
+    "Tickets": {
+        (
+            payload.body.ns0#getTicketsResponse.*ns0#ticketGetResponseDtos map (Ticket: {
+                id: $.ns0#id,
+                name: $.ns0#name,
+                coordinates: {
+                    x: $.ns0#coordinates.ns0#x,
+                    y: $.ns0#coordinates.ns0#y
+                },
+                creationDate: $.ns0#creationDate,
+                price: $.ns0#price,
+                "type": $.ns0#"type",
+                person: {
+                    weight: $.ns0#person.ns0#weight,
+                    hairColor: $.ns0#person.ns0#hairColor,
+                    location: {
+                        x: $.ns0#person.ns0#location.ns0#x,
+                        y: $.ns0#person.ns0#location.ns0#y,
+                        z: $.ns0#person.ns0#location.ns0#z,
+                    }
+                }
+            }
+            )
+        ),
+        page:  payload.body.ns0#getTicketsResponse.ns0#page,
+        pageSize: payload.body.ns0#getTicketsResponse.ns0#pageSize,
+        totalPages: payload.body.ns0#getTicketsResponse.ns0#totalPages,
+        totalCount: payload.body.ns0#getTicketsResponse.ns0#totalCount
+    }
+}
+//{
+//	"ticketGetResponseDtos": payload.body.ns0#getTicketsResponse.*ns0#ticketGetResponseDtos map (item, index) -> item,
+//	"page": payload.body.ns0#getTicketsResponse.ns0#page,
+//	"pageSize": payload.body.ns0#getTicketsResponse.ns0#pageSize,
+//	"totalPages": payload.body.ns0#getTicketsResponse.ns0#totalPages,
+//	"totalCount": payload.body.ns0#getTicketsResponse.ns0#totalCount
+//}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="getTicket" doc:id="8740568c-4d15-409c-be4d-d3a05408fc03" >
+		<http:listener doc:name="Listener" doc:id="55dd0d7b-8191-4f54-8aa9-f63369a3df92" config-ref="HTTP_Listener_config" path="/service/tickets/{id}" allowedMethods="GET">
+			<http:response >
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Access-Control-Allow-Origin" : "*",
+	"Access-Control-Allow-Methods" : "GET, PUT, POST, DELETE, HEAD, OPTIONS",
+	"Access-Control-Allow-Headers" : "*",
+	"Access-Control-Allow-Credentials" : "true"
+}]]]></http:headers>
+			</http:response>
+			<http:error-response >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+				<http:headers ><![CDATA[#[output application/java
+---
+{
+	"Access-Control-Allow-Origin" : "*",
+	"Access-Control-Allow-Methods" : "GET, PUT, POST, DELETE, HEAD, OPTIONS",
+	"Access-Control-Allow-Headers" : "*",
+	"Access-Control-Allow-Credentials" : "true"
+}]]]></http:headers>
+			</http:error-response>
+		</http:listener>
+		<ee:transform doc:name="Transform Message" doc:id="cb367fff-119c-49e2-be77-b054e6522367" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/xml skipNullOn="everywhere"
+ns ns0 http://se/ifmo/ru/service
+---
+{
+	ns0#getTicketRequest: {
+		ns0#id: attributes.uriParams.id
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume doc:name="Consume" doc:id="3db27367-0067-463d-9dae-54150f8762b4" config-ref="Web_Service_Consumer_Config" operation="getTicket"/>
+		<logger level="INFO" doc:name="Logger" doc:id="229fd332-8396-40a8-8d30-9e5b7d97b43a" />
+		<ee:transform doc:name="Transform Message" doc:id="f6fdd62e-cda8-434e-b865-6dada54f0553" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://se/ifmo/ru/service
+
+output application/xml
+---
+{
+	Ticket: {
+		id: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#id,
+		name: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#name,
+		coordinates: {
+			 x: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#coordinates.ns0#x,
+			 y: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#coordinates.ns0#y
+		},
+		creationDate: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#creationDate,
+		price: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#price,
+		"type": payload.body.ns0#getTicketResponse.ns0#ticket.ns0#"type",
+		person: {
+			weight: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#person.ns0#weight,
+			hairColor: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#person.ns0#hairColor,
+			location: {
+				x: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#x,
+				y: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#y,
+				z: payload.body.ns0#getTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#z
+			}
+		}
+	}
+}	
+
+	]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="addTicket" doc:id="f93ebb9d-ceca-430d-8b86-35037b489f42" >
+		<http:listener doc:name="Listener" doc:id="9ae2f374-eef8-486b-ab35-5deb8118b658" config-ref="HTTP_Listener_config" path="/service/tickets" allowedMethods="POST"/>
+		<ee:transform doc:name="Transform Message" doc:id="ef1087b0-9942-4b89-b46d-bc78253d1640" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[output text/xml skipNullOn="everywhere"
+ns ns0 http://se/ifmo/ru/service
+---
+{
+	ns0#addTicketRequest: {
+		ns0#ticket: {
+			ns0#name: payload.Ticket.name,
+			ns0#coordinates: {
+				ns0#x: payload.Ticket.coordinates.x,
+				ns0#y: payload.Ticket.coordinates.y
+			},
+			ns0#price: payload.Ticket.price,
+			ns0#"type": payload.Ticket."type",
+			ns0#person: {
+				ns0#weight: payload.Ticket.person.weight,
+				ns0#hairColor: payload.Ticket.person.hairColor,
+				ns0#location: {
+					ns0#x: payload.Ticket.person.location.x,
+					ns0#y: payload.Ticket.person.location.y,
+					ns0#z: payload.Ticket.person.location.z
+				}	
+			},
+		}
+	}
+}
+]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume operation="addTicket" doc:name="Consume" doc:id="5f1bee3f-c2bd-406c-80a9-46eff04844d0" config-ref="Web_Service_Consumer_Config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="179acb18-b730-4386-acb6-97b4c55041cd" />
+		<ee:transform doc:name="Transform Message" doc:id="616350e7-76c5-4044-9549-d131ed671436" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://se/ifmo/ru/service
+
+output application/xml
+---
+{
+	Ticket: {
+		id: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#id,
+		name: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#name,
+		coordinates: {
+			 x: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#coordinates.ns0#x,
+			 y: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#coordinates.ns0#y
+		},
+		creationDate: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#creationDate,
+		price: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#price,
+		"type": payload.body.ns0#addTicketResponse.ns0#ticket.ns0#"type",
+		person: {
+			weight: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#person.ns0#weight,
+			hairColor: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#person.ns0#hairColor,
+			location: {
+				x: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#x,
+				y: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#y,
+				z: payload.body.ns0#addTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#z
+			}
+		}
+	}
+}	]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="deleteTicket" doc:id="fa6610f1-e44e-449d-9613-e6f2d9ebbe1d" >
+		<http:listener doc:name="Listener" doc:id="bca7e934-9254-4ec3-a4e7-4e247edb775b" config-ref="HTTP_Listener_config" path="/service/tickets/{id}" allowedMethods="DELETE">
+			<http:error-response >
+				<http:body ><![CDATA[#[payload]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<ee:transform doc:name="Transform Message" doc:id="5d42bbdd-c6a1-4dc4-8506-1812786bd9d2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/xml skipNullOn="everywhere"
+ns ns0 http://se/ifmo/ru/service
+---
+{
+	ns0#deleteTicketRequest: {
+		ns0#id: attributes.uriParams.id
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume operation="deleteTicket" doc:name="Consume" doc:id="5ee8d7f1-f82a-4e7c-ada7-2caa71afe48f" config-ref="Web_Service_Consumer_Config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="bf28192f-a704-457b-ae99-720f3f324882" />
+		<ee:transform doc:name="Transform Message" doc:id="59ac0f99-1407-4f94-acf8-3d81b9c641fe" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://se/ifmo/ru/service
+output application/xml
+---
+{	
+	result: {
+		code: payload.body.ns0#deleteTicketResponse.ns0#code,
+		message: payload.body.ns0#deleteTicketResponse.ns0#message,
+		time: payload.body.ns0#deleteTicketResponse.ns0#time
+	}
+
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="updateTicket" doc:id="158c568d-03dc-4c5d-a8ea-f5e83e191e14" >
+		<http:listener doc:name="Listener" doc:id="21c8e490-e0f9-4839-8b47-632cb857476e" config-ref="HTTP_Listener_config" path="/service/tickets/{id}" allowedMethods="PUT"/>
+		<ee:transform doc:name="Transform Message" doc:id="a39968bc-c8ff-4036-a2d7-78fcd18d885d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/xml skipNullOn="everywhere"
+ns ns0 http://se/ifmo/ru/service
+---
+{
+	ns0#updateTicketRequest: {
+		ns0#id: attributes.uriParams.id,
+		ns0#ticket: {
+			ns0#name: payload.Ticket.name,
+			ns0#coordinates: {
+				ns0#x: payload.Ticket.coordinates.x,
+				ns0#y: payload.Ticket.coordinates.y
+			},
+			ns0#price: payload.Ticket.price,
+			ns0#"type": payload.Ticket."type",
+			ns0#person: {
+				ns0#weight: payload.Ticket.person.weight,
+				ns0#hairColor: payload.Ticket.person.hairColor,
+				ns0#location: {
+					ns0#x: payload.Ticket.person.location.x,
+					ns0#y: payload.Ticket.person.location.y,
+					ns0#z: payload.Ticket.person.location.z
+				}	
+			},
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume operation="updateTicket" doc:name="Consume" doc:id="eb6c03d5-c2f5-479e-a062-a242ea9f554c" config-ref="Web_Service_Consumer_Config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="cb6508d2-066b-4c5f-8e32-d8542ad2e7fd" />
+		<ee:transform doc:name="Transform Message" doc:id="2cb23497-3e3d-4cc6-abc0-056a56df454a" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://se/ifmo/ru/service
+
+output application/xml
+---
+{
+	Ticket: {
+		id: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#id,
+		name: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#name,
+		coordinates: {
+			 x: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#coordinates.ns0#x,
+			 y: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#coordinates.ns0#y
+		},
+		creationDate: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#creationDate,
+		price: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#price,
+		"type": payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#"type",
+		person: {
+			weight: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#person.ns0#weight,
+			hairColor: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#person.ns0#hairColor,
+			location: {
+				x: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#x,
+				y: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#y,
+				z: payload.body.ns0#updateTicketResponse.ns0#ticket.ns0#person.ns0#location.ns0#z
+			}
+		}
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="getMinimumType" doc:id="ff6b0fd6-5eb9-4ee9-ba89-8aacccc5be70" >
+		<http:listener doc:name="Listener" doc:id="21732c72-ca45-45f9-bb95-f0ed353c8ed9" config-ref="HTTP_Listener_config" path="/service/tickets/minimum-type" allowedMethods="GET"/>
+		<ee:transform doc:name="Transform Message" doc:id="5bc682ea-0d86-45fa-b4e4-5e36f4c40068" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/xml skipNullOn="everywhere"
+ns ns0 http://se/ifmo/ru/service
+---
+{
+	ns0#getMinimumTypeRequest: {}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume operation="getMinimumType" doc:name="Consume" doc:id="ec95ab65-397e-4538-90f9-b62b03e1ba24" config-ref="Web_Service_Consumer_Config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="b781c0f5-6d58-4a4c-85bd-e2aab0552557" />
+		<ee:transform doc:name="Transform Message" doc:id="a9b0d226-165f-4ea5-8f3e-4373d4b87aa2" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://se/ifmo/ru/service
+
+output application/xml
+---
+{
+	Ticket: {
+		id: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#id,
+		name: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#name,
+		coordinates: {
+			 x: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#coordinates.ns0#x,
+			 y: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#coordinates.ns0#y
+		},
+		creationDate: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#creationDate,
+		price: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#price,
+		"type": payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#"type",
+		person: {
+			weight: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#person.ns0#weight,
+			hairColor: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#person.ns0#hairColor,
+			location: {
+				x: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#person.ns0#location.ns0#x,
+				y: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#person.ns0#location.ns0#y,
+				z: payload.body.ns0#getMinimumTypeResponse.ns0#ticket.ns0#person.ns0#location.ns0#z
+			}
+		}
+	}
+}	]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="getGreaterType" doc:id="a1dc1e50-aa1c-4559-bf45-31c1023904dd" >
+		<http:listener doc:name="Listener" doc:id="82f1cbe8-7e57-4911-81ad-e78c5027beb3" config-ref="HTTP_Listener_config" path="/service/tickets/name/{type}" allowedMethods="GET"/>
+		<ee:transform doc:name="Transform Message" doc:id="7200669a-b99f-461a-a295-b5916639920d" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/xml skipNullOn="everywhere"
+ns ns0 http://se/ifmo/ru/service
+---
+{
+	ns0#getGreaterTypeRequest: {
+		ns0#"type": attributes.uriParams."type"
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume operation="getGreaterType" doc:name="Consume" doc:id="2e00340f-9c16-4645-bd99-8d12303763eb" config-ref="Web_Service_Consumer_Config"/>
+		<logger level="INFO" doc:name="Logger" doc:id="0a5ad0dd-f5d2-4378-9862-17ebc4cea2c2" />
+		<ee:transform doc:name="Transform Message" doc:id="fdb7634d-ec57-41f5-be3b-95c0b647dd0b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://se/ifmo/ru/service
+
+output application/xml
+
+---
+{ 
+	Tickets: {(
+		payload.body.ns0#getTicketsResponse.*ns0#ticketGetResponseDtos map {
+			ticket: {
+				id: $.ns0#id,
+				name: $.ns0#name,
+				coordinates: {
+					x: $.ns0#coordinates.ns0#x,
+					y: $.ns0#coordinates.ns0#y
+				},
+				creationDate: $.ns0#creationDate,
+				price: $.ns0#price,
+				"type": $.ns0#"type",
+				person: {
+					weight: $.ns0#person.ns0#weight,
+					hairColor: $.ns0#person.ns0#hairColor,
+					location: {
+						x: $.ns0#person.ns0#location.ns0#x,
+						y: $.ns0#person.ns0#location.ns0#y,
+						z: $.ns0#person.ns0#location.ns0#z,
+					}
+				}
+			}
+		}
+	)},
+
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+	<flow name="countByPrice" doc:id="e5dc1092-420b-494e-b675-43044374a754" >
+		<http:listener doc:name="Listener" doc:id="cdbde877-a785-4944-b45e-a47da20e3c1a" config-ref="HTTP_Listener_config" path="/service/tickets/count/{price}" allowedMethods="GET"/>
+		<ee:transform doc:name="Transform Message" doc:id="54023120-fa0f-4af4-9997-e1a7eab639f4" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+output text/xml skipNullOn="everywhere"
+ns ns0 http://se/ifmo/ru/service
+---
+{
+	ns0#countByPriceRequest: {
+		ns0#price: attributes.uriParams.price
+	}
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+		<wsc:consume doc:name="Consume" doc:id="8834e3fc-cf5e-4851-8bf5-bae10583cbac" config-ref="Web_Service_Consumer_Config" operation="countByPrice"/>
+		<logger level="INFO" doc:name="Logger" doc:id="469104da-5fa8-406d-b9a7-1cfbb573c74a" />
+		<ee:transform doc:name="Transform Message" doc:id="5d5f5def-f76a-4c5e-a0e0-d2154a783d7b" >
+			<ee:message >
+				<ee:set-payload ><![CDATA[%dw 2.0
+ns ns0 http://se/ifmo/ru/service
+
+output application/xml
+
+---
+
+{	
+	result: {
+		count: payload.body.ns0#countByPriceResponse.ns0#count
+	}
+
+}]]></ee:set-payload>
+			</ee:message>
+		</ee:transform>
+	</flow>
+</mule>
