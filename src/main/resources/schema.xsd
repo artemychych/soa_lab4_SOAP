@@ -1,0 +1,199 @@
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:tns="http://se/ifmo/ru/service"
+           targetNamespace="http://se/ifmo/ru/service"
+           elementFormDefault="qualified">
+    <!-- Get Tickets -->
+    <xs:element name="getTicketsRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="sort" type="xs:string" maxOccurs="unbounded"/>
+                <xs:element name="filter" type="xs:string" maxOccurs="unbounded"/>
+                <xs:element name="page" type="xs:string"/>
+                <xs:element name="pageSize" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="getTicketsResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ticketGetResponseDtos" maxOccurs="unbounded" type="tns:TicketGetResponseDto"/>
+                <xs:element name="page" type="xs:int" minOccurs="0"/>
+                <xs:element name="pageSize" type="xs:int" minOccurs="0"/>
+                <xs:element name="totalPages" type="xs:int" minOccurs="0"/>
+                <xs:element name="totalCount" type="xs:long" minOccurs="0"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+
+    <!--  Get Ticket (only one)  -->
+    <xs:element name="getTicketRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="id" type="xs:string" minOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="getTicketResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ticket" type="tns:TicketGetResponseDto" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!--  Add Ticket  -->
+    <xs:element name="addTicketRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ticket" type="tns:TicketAddOrUpdateDto"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="addTicketResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ticket" type="tns:TicketGetResponseDto" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!--  Update Ticket  -->
+    <xs:element name="updateTicketRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="id" type="xs:string" maxOccurs="1"/>
+                <xs:element name="ticket" type="tns:TicketAddOrUpdateDto" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="updateTicketResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ticket" type="tns:TicketGetResponseDto" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!--  Delete by id Ticket  -->
+    <xs:element name="deleteTicketRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="id" type="xs:string" minOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="deleteTicketResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="code" type="xs:string" maxOccurs="1"/>
+                <xs:element name="message" type="xs:string" maxOccurs="1"/>
+                <xs:element name="time" type="xs:string" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!--  Minimum type  -->
+    <xs:element name="getMinimumTypeRequest">
+        <xs:complexType>
+            <xs:sequence>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="getMinimumTypeResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ticket" type="tns:TicketGetResponseDto" maxOccurs="1"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!--  get greater type  -->
+    <xs:element name="getGreaterTypeRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="type" type="xs:string"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="getGreaterTypeResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="ticketGetResponseDtos" maxOccurs="unbounded" type="tns:TicketGetResponseDto"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <!--  count by price  -->
+    <xs:element name="countByPriceRequest">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="price" type="xs:float"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+    <xs:element name="countByPriceResponse">
+        <xs:complexType>
+            <xs:sequence>
+                <xs:element name="count" type="xs:long"/>
+            </xs:sequence>
+        </xs:complexType>
+    </xs:element>
+
+
+
+    <!-- Other  -->
+    <xs:complexType name="TicketCoordinatesGetResponseDto">
+        <xs:sequence>
+            <xs:element name="x" type="xs:int" minOccurs="0"/>
+            <xs:element name="y" type="xs:int" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TicketPersonLocationGetResponseDto">
+        <xs:sequence>
+            <xs:element name="x" type="xs:float" minOccurs="0"/>
+            <xs:element name="y" type="xs:long" minOccurs="0"/>
+            <xs:element name="z" type="xs:double" minOccurs="0"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TicketPersonGetResponseDto">
+        <xs:sequence>
+            <xs:element name="weight" type="xs:long" minOccurs="1"/>
+            <xs:element name="hairColor" type="xs:string"/>
+            <xs:element name="location" type="tns:TicketPersonLocationGetResponseDto"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TicketGetResponseDto">
+        <xs:sequence>
+            <xs:element name="id" type="xs:int" minOccurs="1"/>
+            <xs:element name="name" type="xs:string" />
+            <xs:element name="creationDate" type="xs:dateTime"/>
+            <xs:element name="coordinates" type="tns:TicketCoordinatesGetResponseDto"/>
+            <xs:element name="price" type="xs:float"/>
+            <xs:element name="type" type="xs:string"/>
+            <xs:element name="person" type="tns:TicketPersonGetResponseDto"/>
+        </xs:sequence>
+    </xs:complexType>
+
+    <xs:complexType name="TicketAddOrUpdateDto">
+        <xs:sequence>
+            <xs:element name="name" type="xs:string" />
+            <xs:element name="coordinates" type="tns:TicketCoordinatesGetResponseDto"/>
+            <xs:element name="price" type="xs:float"/>
+            <xs:element name="type" type="xs:string"/>
+            <xs:element name="person" type="tns:TicketPersonGetResponseDto"/>
+        </xs:sequence>
+    </xs:complexType>
+
+</xs:schema>
